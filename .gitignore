@@ -58,4 +58,5 @@ out/
 .env
 
 application.properties
+
 **/application.properties
