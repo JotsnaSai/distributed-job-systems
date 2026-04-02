@@ -5,9 +5,12 @@ import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import com.example.jobsystem.queue.*
 
 @Service
-class JobService {
+class JobService(
+    private val sqsProducer: SqsProducer
+) {
 
     private val jobStore = ConcurrentHashMap<String, Job>()
 
@@ -23,7 +26,7 @@ class JobService {
 
         jobStore[jobId] = job
 
-        processJobAsync(jobId) // 👈 async call
+        sqsProducer.sendMessage(jobId);
 
         return JobResponse(
             jobId = jobId,
@@ -59,5 +62,27 @@ class JobService {
             ?: throw RuntimeException("Job not found")
 
         return JobResponse(job.id, job.status.name)
+    }
+
+    fun processJobFromQueue(jobId: String): Boolean {
+        val job = jobStore[jobId] ?: return false
+
+        println("Worker processing job: $jobId")
+
+        job.status = JobStatus.PROCESSING
+
+        Thread.sleep(2000)
+
+        val shouldFail = Math.random() < 0.5
+
+        return if (shouldFail) {
+            job.status = JobStatus.FAILED
+            println("Job failed: $jobId")
+            false
+        } else {
+            job.status = JobStatus.COMPLETED
+            println("Job completed: $jobId")
+            true
+        }
     }
 }
