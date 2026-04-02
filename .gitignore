@@ -56,3 +56,5 @@ out/
 
 # Env
 .env
+
+application.properties
