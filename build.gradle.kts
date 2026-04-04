@@ -29,10 +29,12 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("tools.jackson.module:jackson-module-kotlin")
 
+    implementation("software.amazon.awssdk:sqs:2.25.20")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    implementation("software.amazon.awssdk:sqs:2.25.20")
 }
 
 kotlin {

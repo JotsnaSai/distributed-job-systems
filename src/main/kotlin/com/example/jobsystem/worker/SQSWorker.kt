@@ -34,7 +34,7 @@ class SqsWorker(
         val request = ReceiveMessageRequest.builder()
             .queueUrl(queueUrl)
             .maxNumberOfMessages(5)
-            .waitTimeSeconds(10) // long polling
+            .waitTimeSeconds(10)
             .build()
 
         val response = sqsClient.receiveMessage(request)
@@ -56,7 +56,6 @@ class SqsWorker(
                 println("Deleted message: $jobId")
             } else {
                 println("Processing failed, message will be retried: $jobId")
-                // ❗ DO NOT delete → SQS will retry
             }
         }
     }

@@ -1,32 +1,62 @@
 package com.example.jobsystem.service
 
 import com.example.jobsystem.model.*
-import org.springframework.scheduling.annotation.Async
+import com.example.jobsystem.repository.EmailJobRepository
+import com.example.jobsystem.repository.JobRepository
+import com.example.jobsystem.queue.SqsProducer
 import org.springframework.stereotype.Service
+import tools.jackson.databind.ObjectMapper
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
-import com.example.jobsystem.queue.*
 
 @Service
 class JobService(
-    private val sqsProducer: SqsProducer
+    private val jobRepository: JobRepository,
+    private val emailJobRepository: EmailJobRepository,
+    private val sqsProducer: SqsProducer,
+    private val objectMapper: ObjectMapper
 ) {
 
-    private val jobStore = ConcurrentHashMap<String, Job>()
-
     fun submitJob(request: JobRequest): JobResponse {
-        val jobId = UUID.randomUUID().toString()
 
-        val job = Job(
-            id = jobId,
-            type = request.type,
-            payload = request.payload,
-            status = JobStatus.SUBMITTED
+        val job = jobRepository.save(
+            Job(
+                type = request.type,
+                status = JobStatus.SUBMITTED
+            )
         )
 
-        jobStore[jobId] = job
+        val jobId = job.id!!
+        println("Created job with ID: $jobId")
 
-        sqsProducer.sendMessage(jobId);
+        when (request.type) {
+
+            JobType.EMAIL -> {
+
+                val emailPayload = objectMapper.convertValue(
+                    request.payload,
+                    EmailPayload::class.java
+                )
+
+                val emailJob = EmailJob(
+                    toEmail = emailPayload.to,
+                    subject = emailPayload.subject,
+                    body = emailPayload.body,
+                    job = job
+                )
+
+                emailJobRepository.save(emailJob)
+
+                println("Saved email job for: ${emailPayload.to}")
+            }
+
+            else -> {
+                throw IllegalArgumentException("Unsupported job type")
+            }
+        }
+
+        sqsProducer.sendMessage(jobId.toString())
+
+        println("Sent job $jobId to SQS")
 
         return JobResponse(
             jobId = jobId,
@@ -34,53 +64,20 @@ class JobService(
         )
     }
 
-    @Async
-    fun processJobAsync(jobId: String) {
-        val job = jobStore[jobId] ?: return
-
-        println("Processing job: $jobId")
-
-        job.status = JobStatus.PROCESSING
-
-        Thread.sleep(2000)
-
-        // 👇 Simulate random failure
-        val shouldFail = Math.random() < 0.5
-
-        if (shouldFail) {
-            job.retryCount++
-            job.status = JobStatus.FAILED
-            println("Job failed: $jobId (retry=${job.retryCount})")
-        } else {
-            job.status = JobStatus.COMPLETED
-            println("Job completed: $jobId")
-        }
-    }
-
     fun getJob(jobId: String): JobResponse {
-        val job = jobStore[jobId]
-            ?: throw RuntimeException("Job not found")
+        val job = jobRepository.findById(jobId)
+            .orElseThrow { RuntimeException("Job not found") }
 
         return JobResponse(job.id, job.status.name)
     }
 
     fun processJobFromQueue(jobId: String): Boolean {
-        val job = jobStore[jobId] ?: return false
 
-        println("Worker processing job: $jobId")
 
-        job.status = JobStatus.PROCESSING
-
-        Thread.sleep(2000)
-
-        val shouldFail = Math.random() < 0.5
-
-        return if (shouldFail) {
-            job.status = JobStatus.FAILED
+        return if (true) {
             println("Job failed: $jobId")
             false
         } else {
-            job.status = JobStatus.COMPLETED
             println("Job completed: $jobId")
             true
         }

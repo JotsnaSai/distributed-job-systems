@@ -4,7 +4,6 @@ import jakarta.validation.constraints.NotBlank
 
 data class JobRequest(
     @field:NotBlank
-    val type: String,
-
-    val payload: String
+    val type: JobType,
+    val payload: Map<String, Any>
 )
