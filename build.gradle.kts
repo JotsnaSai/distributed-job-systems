@@ -1,7 +1,7 @@
 plugins {
     kotlin("jvm") version "2.2.21"
     kotlin("plugin.spring") version "2.2.21"
-    id("org.springframework.boot") version "4.0.5"
+    id("org.springframework.boot") version "3.2.5"
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("plugin.jpa") version "2.2.21"
 }
@@ -27,10 +27,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("tools.jackson.module:jackson-module-kotlin")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
     implementation("software.amazon.awssdk:sqs:2.25.20")
     implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("io.awspring.cloud:spring-cloud-aws-starter-sqs:3.4.0")
 
     runtimeOnly("org.postgresql:postgresql")
 

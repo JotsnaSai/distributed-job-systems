@@ -1,61 +1,44 @@
 package com.example.jobsystem.worker
 
-import com.example.jobsystem.service.JobService
-import jakarta.annotation.PostConstruct
-import org.springframework.beans.factory.annotation.Value
+import com.example.jobsystem.model.JobType
+import com.example.jobsystem.repository.JobRepository
+import com.example.jobsystem.service.processor.EmailJobProcessor
+import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Component
-import software.amazon.awssdk.services.sqs.SqsClient
-import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest
-import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest
+import io.awspring.cloud.sqs.annotation.SqsListener
 
 @Component
 class SqsWorker(
-    private val sqsClient: SqsClient,
-    private val jobService: JobService,
-    @Value("\${aws.sqs.queue-url}") private val queueUrl: String
+    private val jobRepository: JobRepository,
+    private val emailJobProcessor: EmailJobProcessor
 ) {
 
-    @PostConstruct
-    fun startPolling() {
-        Thread {
-            println("SQS Worker started...")
+    @SqsListener("job-queue")
+    fun handleMessage(@Payload jobId: String) {
 
-            while (true) {
-                try {
-                    pollMessages()
-                } catch (e: Exception) {
-                    println("Error in polling: ${e.message}")
-                }
+        println("📩 Received message from SQS: $jobId")
+
+        val id = jobId.toLongOrNull()
+        if (id == null) {
+            println("❌ Invalid jobId: $jobId")
+            return
+        }
+
+        val job = jobRepository.findById(id).orElse(null)
+        if (job == null) {
+            println("❌ Job not found: $id")
+            return
+        }
+
+        when (job.type) {
+
+            JobType.EMAIL -> {
+                println("⚙️ Processing EMAIL job: $id")
+                emailJobProcessor.process(id)
             }
-        }.start()
-    }
 
-    private fun pollMessages() {
-        val request = ReceiveMessageRequest.builder()
-            .queueUrl(queueUrl)
-            .maxNumberOfMessages(5)
-            .waitTimeSeconds(10)
-            .build()
-
-        val response = sqsClient.receiveMessage(request)
-
-        for (message in response.messages()) {
-            val jobId = message.body()
-
-            println("Received job from SQS: $jobId")
-
-            val success = jobService.processJobFromQueue(jobId)
-
-            if (success) {
-                sqsClient.deleteMessage(
-                    DeleteMessageRequest.builder()
-                        .queueUrl(queueUrl)
-                        .receiptHandle(message.receiptHandle())
-                        .build()
-                )
-                println("Deleted message: $jobId")
-            } else {
-                println("Processing failed, message will be retried: $jobId")
+            else -> {
+                println("❌ Unsupported job type: ${job.type}")
             }
         }
     }
