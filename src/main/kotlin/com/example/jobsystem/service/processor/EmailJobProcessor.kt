@@ -13,7 +13,7 @@ class EmailJobProcessor(
     private val emailService: EmailService
 ) : JobProcessor {
 
-    override fun process(jobId: Long): Boolean {
+    override fun process(jobId: String): Boolean {
 
         val job = jobRepository.findById(jobId).orElse(null) ?: return false
 
@@ -52,7 +52,9 @@ class EmailJobProcessor(
             job.retryCount += 1
             jobRepository.save(job)
 
-            false
+            println("❌ Job failed: $jobId, retryCount=${job.retryCount}")
+
+            throw RuntimeException("Processing failed, will retry")
         }
     }
 }

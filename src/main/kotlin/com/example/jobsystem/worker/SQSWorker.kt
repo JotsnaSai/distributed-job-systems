@@ -3,7 +3,6 @@ package com.example.jobsystem.worker
 import com.example.jobsystem.model.JobType
 import com.example.jobsystem.repository.JobRepository
 import com.example.jobsystem.service.processor.EmailJobProcessor
-import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Component
 import io.awspring.cloud.sqs.annotation.SqsListener
 
@@ -13,28 +12,22 @@ class SqsWorker(
     private val emailJobProcessor: EmailJobProcessor
 ) {
 
-    @SqsListener("job-queue")
-    fun handleMessage(@Payload jobId: String) {
+    @SqsListener("job-queue", maxConcurrentMessages = "10")
+    fun handleMessage(jobId: String) {
 
         println("📩 Received message from SQS: $jobId")
 
-        val id = jobId.toLongOrNull()
-        if (id == null) {
-            println("❌ Invalid jobId: $jobId")
-            return
-        }
-
-        val job = jobRepository.findById(id).orElse(null)
+        val job = jobRepository.findById(jobId).orElse(null)
         if (job == null) {
-            println("❌ Job not found: $id")
+            println("❌ Job not found: $jobId")
             return
         }
 
         when (job.type) {
 
             JobType.EMAIL -> {
-                println("⚙️ Processing EMAIL job: $id")
-                emailJobProcessor.process(id)
+                println("⚙️ Processing EMAIL job: $jobId")
+                emailJobProcessor.process(jobId)
             }
 
             else -> {

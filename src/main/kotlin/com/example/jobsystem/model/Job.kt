@@ -7,8 +7,7 @@ import jakarta.persistence.*
 data class Job(
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long? = null,
+    val id: String,
 
     @Enumerated(EnumType.STRING)
     val type: JobType,
