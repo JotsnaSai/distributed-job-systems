@@ -12,7 +12,7 @@ class SqsWorker(
     private val emailJobProcessor: EmailJobProcessor
 ) {
 
-    @SqsListener("job-queue", maxConcurrentMessages = "10")
+    @SqsListener("\${aws.sqs.queue-name}", maxConcurrentMessages = "\${aws.sqs.concurrent-messages}")
     fun handleMessage(jobId: String) {
 
         println("📩 Received message from SQS: $jobId")
