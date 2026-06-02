@@ -74,4 +74,12 @@ class JobService(
 
         return JobResponse(job.id, job.status.name)
     }
+
+    fun requeueJob(jobId: String) {
+        val job = jobRepository.findById(jobId).orElse(null) ?: return
+        job.status = JobStatus.SUBMITTED
+        jobRepository.save(job)
+        sqsProducer.sendMessage(jobId)
+        println("🔄 Re-queued job $jobId back to SQS")
+    }
 }
