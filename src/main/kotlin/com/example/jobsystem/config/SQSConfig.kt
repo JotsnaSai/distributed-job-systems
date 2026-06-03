@@ -29,10 +29,10 @@ class SqsConfig {
                     AwsBasicCredentials.create(accessKeyId, secretAccessKey)
                 )
             )
-            println("🔑 Using static AWS credentials")
+            println("Using static AWS credentials")
         } else {
             builder.credentialsProvider(DefaultCredentialsProvider.create())
-            println("🔑 Using default AWS credentials provider")
+            println("Using default AWS credentials provider")
         }
 
         return builder.build()
@@ -57,10 +57,10 @@ class SqsConfig {
                     )
                     .build()
             )
-            println("✅ SQS queue attributes configured successfully")
+            println("SQS queue attributes configured successfully")
             true
         } catch (ex: Exception) {
-            println("⚠️ Could not set queue attributes: ${ex.message}")
+            println("Could not set queue attributes: ${ex.message}")
             false
         }
     }

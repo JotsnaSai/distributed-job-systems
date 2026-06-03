@@ -18,6 +18,6 @@ class EmailService(
 
         mailSender.send(message)
 
-        println("📩 Email sent to $to")
+        println("Email sent to $to")
     }
 }

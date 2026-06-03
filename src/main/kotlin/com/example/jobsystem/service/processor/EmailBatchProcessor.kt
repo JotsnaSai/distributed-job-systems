@@ -27,7 +27,7 @@ class EmailBatchProcessor(
                 totalCount = emailPayload.to.size
             )
         )
-        println("✅ Created email batch id=${batch.id} for job=${job.id} with ${emailPayload.to.size} recipients")
+        println("Created email batch id=${batch.id} for job=${job.id} with ${emailPayload.to.size} recipients")
 
         val emailJobs = emailPayload.to.map { toEmail ->
             EmailJob(
@@ -38,6 +38,6 @@ class EmailBatchProcessor(
         }
 
         emailJobRepository.saveAll(emailJobs)
-        println("✅ Created ${emailJobs.size} email jobs for batch id=${batch.id}")
+        println("Created ${emailJobs.size} email jobs for batch id=${batch.id}")
     }
 }

@@ -11,16 +11,16 @@ class DlqWorker(
 ) {
     @SqsListener("\${aws.sqs.dlq-name}")
     fun handleDlqMessage(jobId: String) {
-        println("💀 DLQ received failed job: $jobId")
+        println("DLQ received failed job: $jobId")
 
         val job = jobRepository.findById(jobId).orElse(null)
         if (job == null) {
-            println("❌ Job not found in DB for DLQ message: $jobId")
+            println("Job not found in DB for DLQ message: $jobId")
             return
         }
 
         job.status = JobStatus.FAILED
         jobRepository.save(job)
-        println("📛 Job $jobId marked as FAILED after exhausting all retries")
+        println("Job $jobId marked as FAILED after exhausting all retries")
     }
 }
