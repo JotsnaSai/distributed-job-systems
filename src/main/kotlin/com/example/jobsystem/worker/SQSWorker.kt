@@ -13,7 +13,7 @@ class SqsWorker(
 ) {
     @SqsListener(
         value = ["\${aws.sqs.queue-name}"],
-        maxConcurrentMessages = "\${aws.sqs.max-concurrent-messages}"
+        maxConcurrentMessages = "10"
     )
     fun handleMessage(jobId: String) {
         println("📩 Received message from SQS: $jobId")
@@ -21,8 +21,6 @@ class SqsWorker(
         val job = jobRepository.findById(jobId).orElse(null)
         if (job == null) {
             println("❌ Job not found: $jobId")
-            // returning normally here tells SQS message was acknowledged
-            // so it won't re-deliver a job that doesn't exist
             return
         }
 
@@ -37,8 +35,6 @@ class SqsWorker(
                 }
             }
         } catch (ex: Exception) {
-            // re-throw so SQS knows message was NOT successfully processed
-            // SQS will re-deliver after visibility timeout expires
             println("🔄 Job $jobId failed, SQS will re-deliver: ${ex.message}")
             throw ex
         }

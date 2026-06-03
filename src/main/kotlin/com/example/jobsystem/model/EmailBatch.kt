@@ -4,22 +4,22 @@ import jakarta.persistence.*
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "email_jobs")
-data class EmailJob(
+@Table(name = "email_batches")
+data class EmailBatch(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
 
-    @ManyToOne
-    @JoinColumn(name = "batch_id")
-    val batch: EmailBatch,
+    @OneToOne
+    @JoinColumn(name = "job_id")
+    val job: Job,
 
-    val toEmail: String,
+    val subject: String,
 
-    @Enumerated(EnumType.STRING)
-    var status: EmailJobStatus = EmailJobStatus.SUBMITTED,
+    @Column(columnDefinition = "TEXT")
+    val body: String,
 
-    var retryCount: Int = 0,
+    val totalCount: Int,
 
     val createdAt: LocalDateTime = LocalDateTime.now(),
 

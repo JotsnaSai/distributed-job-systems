@@ -1,9 +1,8 @@
 package com.example.jobsystem.model
 
-enum class JobStatus {
+enum class EmailJobStatus {
     SUBMITTED,
-    IN_PROGRESS,
-    PARTIALLY_COMPLETED,
+    PROCESSING,
     COMPLETED,
     FAILED
 }

@@ -1,16 +1,20 @@
 package com.example.jobsystem.service.processor
 
+import com.example.jobsystem.model.EmailJobStatus
 import com.example.jobsystem.model.JobStatus
+import com.example.jobsystem.repository.EmailBatchRepository
 import com.example.jobsystem.repository.EmailJobRepository
 import com.example.jobsystem.repository.JobRepository
 import com.example.jobsystem.service.EmailService
 import jakarta.transaction.Transactional
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.time.LocalDateTime
 
 @Service
 class EmailJobProcessor(
     private val jobRepository: JobRepository,
+    private val emailBatchRepository: EmailBatchRepository,
     private val emailJobRepository: EmailJobRepository,
     private val emailService: EmailService,
     @Value("\${aws.sqs.max-retry-count}") private val maxRetryCount: Int
@@ -26,48 +30,85 @@ class EmailJobProcessor(
             return true
         }
 
-        if (job.status == JobStatus.PROCESSING) {
-            println("⚠️ Job already being processed: $jobId")
+        val batch = emailBatchRepository.findByJob_Id(jobId)
+        if (batch == null) {
+            println("❌ No email batch found for job: $jobId")
             return false
         }
 
-        if (job.retryCount >= maxRetryCount) {
-            println("💀 Job $jobId exceeded max retries (${job.retryCount}/$maxRetryCount), marking as FAILED")
-            job.status = JobStatus.FAILED
-            jobRepository.save(job)
+        val emailJobs = emailJobRepository.findByBatch_Id(batch.id!!)
+        if (emailJobs.isEmpty()) {
+            println("❌ No email jobs found for batch: ${batch.id}")
             return false
         }
 
-        val emailJob = emailJobRepository.findByJob_Id(jobId) ?: return false
+        job.status = JobStatus.IN_PROGRESS
+        job.updatedAt = LocalDateTime.now()
+        jobRepository.save(job)
+        println("⚙️ Job $jobId IN_PROGRESS — processing ${emailJobs.size} emails")
 
-        return try {
-            job.status = JobStatus.PROCESSING
-            jobRepository.save(job)
+        emailJobs.forEach { emailJob ->
 
-            emailService.sendEmail(
-                emailJob.toEmail,
-                emailJob.subject,
-                emailJob.body
-            )
+            if (emailJob.status == EmailJobStatus.COMPLETED) {
+                println("⚠️ Email already sent to ${emailJob.toEmail}, skipping")
+                return@forEach
+            }
 
-            job.status = JobStatus.COMPLETED
-            jobRepository.save(job)
-            println("✅ Job $jobId completed successfully")
-            true
+            if (emailJob.status == EmailJobStatus.PROCESSING) {
+                println("⚠️ Email already processing for ${emailJob.toEmail}, skipping to avoid duplicate")
+                emailJob.status = EmailJobStatus.COMPLETED
+                emailJob.updatedAt = LocalDateTime.now()
+                emailJobRepository.save(emailJob)
+                return@forEach
+            }
 
-        } catch (ex: Exception) {
-            job.status = JobStatus.FAILED
-            job.retryCount += 1
-            jobRepository.save(job)
-            println("❌ Job failed: $jobId, retryCount=${job.retryCount}/$maxRetryCount")
+            if (emailJob.retryCount >= maxRetryCount) {
+                println("💀 Max retries reached for ${emailJob.toEmail}, marking FAILED")
+                emailJob.status = EmailJobStatus.FAILED
+                emailJob.updatedAt = LocalDateTime.now()
+                emailJobRepository.save(emailJob)
+                return@forEach
+            }
 
-            if (job.retryCount < maxRetryCount) {
-                println("🔄 Will retry job $jobId (attempt ${job.retryCount}/$maxRetryCount)")
-                throw RuntimeException("Processing failed, will retry")
-            } else {
-                println("💀 Job $jobId exhausted all retries, SQS will move to DLQ")
-                return false
+            emailJob.status = EmailJobStatus.PROCESSING
+            emailJob.updatedAt = LocalDateTime.now()
+            emailJobRepository.save(emailJob)
+
+            try {
+                emailService.sendEmail(
+                    emailJob.toEmail,
+                    batch.subject,
+                    batch.body
+                )
+
+                emailJob.status = EmailJobStatus.COMPLETED
+                emailJob.updatedAt = LocalDateTime.now()
+                emailJobRepository.save(emailJob)
+                println("✅ Email sent to ${emailJob.toEmail}")
+
+            } catch (ex: Exception) {
+                emailJob.retryCount += 1
+                emailJob.status = EmailJobStatus.FAILED
+                emailJob.updatedAt = LocalDateTime.now()
+                emailJobRepository.save(emailJob)
+                println("❌ Failed to send to ${emailJob.toEmail}, retryCount=${emailJob.retryCount}")
             }
         }
+
+        val totalCount = emailJobRepository.countByBatch_Id(batch.id!!)
+        val completedCount = emailJobRepository.countByBatch_IdAndStatus(batch.id!!, EmailJobStatus.COMPLETED)
+        val failedCount = emailJobRepository.countByBatch_IdAndStatus(batch.id!!, EmailJobStatus.FAILED)
+
+        job.status = when {
+            completedCount == totalCount -> JobStatus.COMPLETED
+            failedCount == totalCount -> JobStatus.FAILED
+            else -> JobStatus.PARTIALLY_COMPLETED
+        }
+        job.updatedAt = LocalDateTime.now()
+        jobRepository.save(job)
+
+        println("🏁 Job $jobId finished — status=${job.status}, completed=$completedCount, failed=$failedCount, total=$totalCount")
+
+        return job.status != JobStatus.FAILED
     }
 }

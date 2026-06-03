@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*
 class JobController(
     private val jobService: JobService
 ) {
-
     @PostMapping
     fun submitJob(@Valid @RequestBody request: JobRequest): JobResponse {
         return jobService.submitJob(request)

@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 
 interface JobRepository : JpaRepository<Job, String> {
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT j FROM Job j WHERE j.id = :id")
     fun findByIdWithLock(id: String): Job?

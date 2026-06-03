@@ -1,7 +1,7 @@
 package com.example.jobsystem.model
 
 data class EmailPayload(
-    val to: String,
+    val to: List<String>,
     val subject: String,
     val body: String
 )
